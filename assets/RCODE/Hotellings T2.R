@@ -76,7 +76,7 @@ cis
 
 # Confidence Interval for the difference mu1-mu3
 alpha<-0.05
-med<-sqrt(((n-1)*p/(n-p))*qf(1-alpha,p,n-p)*(Sigma[1,1]*Sigma[3,3]-2*Sigma[1,3])/n)
+med<-sqrt(((n-1)*p/(n-p))*qf(1-alpha,p,n-p)*(Sigma[1,1]+Sigma[3,3]-2*Sigma[1,3])/n)
 cid<-cbind((bar.y[1]-bar.y[3])-med, (bar.y[1]-bar.y[3])+med)
 cat("95% simultaneous confidence interval for mu1-mu3","\n")
 cid
@@ -92,3 +92,4 @@ library(MVTests)
 hot<-data.frame(y1,y2,y3)
 hot
 summary(hot)
+
