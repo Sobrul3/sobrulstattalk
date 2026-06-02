@@ -29,7 +29,7 @@
     padding: 0 24px; height: 56px; position: sticky; top: 0; z-index: 100;
     box-shadow: 0 2px 20px rgba(230,57,70,0.15);
   }
-  .nav-logo { font-family: 'Nunito ', sans-serif; font-size: 1.7rem; color: var(--accent); letter-spacing: 2px; }
+  .nav-logo { font-family: 'Nunito ', sans-serif; font-size: 1.4rem; color: var(--accent); letter-spacing: 2px; }
   .nav-logo span { color: var(--accent2); }
   .nav-links { display: flex; gap: 8px; }
   .nav-links a {
@@ -391,9 +391,8 @@ function playChannel(idx) {
   document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('playing'));
   const card = document.querySelector(`.ch-card[data-idx="${idx}"]`);
   if (card) { card.classList.add('playing'); }
-  // ensure the player is visible to the user when a channel is selected
-  const playerSection = document.querySelector('.player-section');
-  if (playerSection) playerSection.scrollIntoView({behavior:'smooth', block:'start'});
+  // scroll to the top of the page to show the video player fully
+  window.scrollTo({top: 0, behavior: 'smooth'});
   currentIndex = idx;
   const ch = channels[idx];
   nowName.textContent = ch.name;
