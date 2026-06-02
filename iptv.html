@@ -207,6 +207,7 @@
     <input class="search-box" type="text" id="searchInput" placeholder="🔍 Search your favorite channels..." oninput="filterChannels()"/>
     <div id="filterBtns" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
   </div>
+  <div id="searchResultsContainer" style="display:none;"></div>
   <div id="channelContainer"></div>
 </div>
 
@@ -377,6 +378,7 @@ const channels = [
 
 let currentIndex = -1;
 let hls = null;
+let currentFilter = '__all__'; // Track current filter: '__all__' or group name
 
 const video = document.getElementById('mainPlayer');
 const overlay = document.getElementById('playerOverlay');
@@ -455,7 +457,9 @@ function buildFilterBtns(groups) {
     btn.onclick = () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      filterChannels(g);
+      document.getElementById('searchInput').value = '';
+      currentFilter = g;
+      displayChannelsByGroup(g);
     };
     container.appendChild(btn);
   });
@@ -492,18 +496,113 @@ function buildChannels(list) {
   });
 }
 
-function filterChannels(groupFilter) {
-  const q = document.getElementById('searchInput').value.toLowerCase();
+function filterChannels() {
+  const searchInput = document.getElementById('searchInput');
+  const q = searchInput.value.toLowerCase().trim();
+  const searchResultsContainer = document.getElementById('searchResultsContainer');
+  const channelContainer = document.getElementById('channelContainer');
+  
+  if (!q) {
+    // No search query - show normal grouped view
+    searchResultsContainer.style.display = 'none';
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    currentFilter = '__all__';
+    buildChannelsFull(channels.map((ch, i) => ({...ch, _idx: i})));
+    return;
+  }
+  
+  // Search query active - search by channel NAME only
   let list = channels.map((ch, i) => ({...ch, _idx: i}));
-  if (q) list = list.filter(ch => ch.name.toLowerCase().includes(q) || ch.group.toLowerCase().includes(q));
-  if (groupFilter && groupFilter !== '__all__') list = list.filter(ch => ch.group === groupFilter);
-  // rebuild with original indices
-  buildChannelsFull(list);
+  list = list.filter(ch => ch.name.toLowerCase().includes(q));
+  
+  // Hide normal channel container
+  channelContainer.innerHTML = '';
+  channelContainer.style.display = 'none';
+  
+  // Show search results
+  searchResultsContainer.style.display = 'block';
+  searchResultsContainer.innerHTML = '';
+  
+  if (list.length === 0) {
+    searchResultsContainer.innerHTML = '<p style="color:var(--muted);text-align:center;padding:40px">❌ Not Available - Channel not found</p>';
+    return;
+  }
+  
+  const grid = document.createElement('div');
+  grid.className = 'channels-grid';
+  grid.style.marginBottom = '30px';
+  
+  list.forEach(ch => {
+    const realIdx = ch._idx;
+    const card = document.createElement('div');
+    card.className = 'ch-card';
+    card.dataset.idx = realIdx;
+    if (realIdx === currentIndex) card.classList.add('playing');
+    card.innerHTML = `
+      <div class="ch-playing-ind"></div>
+      <img class="ch-logo" src="${ch.logo}" alt="${ch.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22><rect width=%2252%22 height=%2252%22 fill=%22%232a3045%22/><text x=%2226%22 y=%2232%22 text-anchor=%22middle%22 fill=%22%237a8099%22 font-size=%2218%22>📺</text></svg>'"/>
+      <div class="ch-name">${ch.name}</div>`;
+    card.onclick = () => playChannel(realIdx);
+    grid.appendChild(card);
+  });
+  
+  searchResultsContainer.appendChild(grid);
+}
+
+function displayChannelsByGroup(groupName) {
+  const searchResultsContainer = document.getElementById('searchResultsContainer');
+  const channelContainer = document.getElementById('channelContainer');
+  
+  searchResultsContainer.style.display = 'none';
+  channelContainer.style.display = 'block';
+  
+  // Get channels for this group only
+  let groupChannels = channels
+    .map((ch, i) => ({...ch, _idx: i}))
+    .filter(ch => ch.group === groupName);
+  
+  // Render only this group
+  channelContainer.innerHTML = '';
+  const sec = document.createElement('div');
+  sec.className = 'group-section';
+  sec.id = 'group-' + groupName.replace(/\s+/g,'_');
+  sec.innerHTML = `<div class="group-title">${groupName} <span class="group-count">${groupChannels.length}</span></div>`;
+  
+  const grid = document.createElement('div');
+  grid.className = 'channels-grid';
+  
+  groupChannels.forEach(ch => {
+    const realIdx = ch._idx;
+    const card = document.createElement('div');
+    card.className = 'ch-card';
+    card.dataset.idx = realIdx;
+    if (realIdx === currentIndex) card.classList.add('playing');
+    card.innerHTML = `
+      <div class="ch-playing-ind"></div>
+      <img class="ch-logo" src="${ch.logo}" alt="${ch.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2252%22 height=%2252%22><rect width=%2252%22 height=%2252%22 fill=%22%232a3045%22/><text x=%2226%22 y=%2232%22 text-anchor=%22middle%22 fill=%22%237a8099%22 font-size=%2218%22>📺</text></svg>'"/>
+      <div class="ch-name">${ch.name}</div>`;
+    card.onclick = () => playChannel(realIdx);
+    grid.appendChild(card);
+  });
+  
+  sec.appendChild(grid);
+  channelContainer.appendChild(sec);
+  
+  // Auto-scroll to this group
+  setTimeout(() => {
+    sec.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, 100);
 }
 
 function buildChannelsFull(list) {
   const container = document.getElementById('channelContainer');
+  const searchResultsContainer = document.getElementById('searchResultsContainer');
+  
+  // Make sure search results are hidden when showing full view
+  searchResultsContainer.style.display = 'none';
+  container.style.display = 'block';
   container.innerHTML = '';
+  
   const grouped = {};
   list.forEach(ch => {
     if (!grouped[ch.group]) grouped[ch.group] = [];
@@ -541,6 +640,9 @@ function buildChannelsFull(list) {
 function filterAll() {
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('searchInput').value = '';
+  document.getElementById('searchResultsContainer').style.display = 'none';
+  document.getElementById('channelContainer').style.display = 'block';
+  currentFilter = '__all__';
   buildChannelsFull(channels.map((ch,i) => ({...ch, _idx:i})));
 }
 
