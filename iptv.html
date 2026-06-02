@@ -388,7 +388,10 @@ function playChannel(idx) {
   if (idx < 0 || idx >= channels.length) return;
   document.querySelectorAll('.ch-card').forEach(c => c.classList.remove('playing'));
   const card = document.querySelector(`.ch-card[data-idx="${idx}"]`);
-  if (card) { card.classList.add('playing'); card.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+  if (card) { card.classList.add('playing'); }
+  // ensure the player is visible to the user when a channel is selected
+  const playerSection = document.querySelector('.player-section');
+  if (playerSection) playerSection.scrollIntoView({behavior:'smooth', block:'start'});
   currentIndex = idx;
   const ch = channels[idx];
   nowName.textContent = ch.name;
@@ -397,12 +400,24 @@ function playChannel(idx) {
   nowLogo.style.display = 'block';
   overlay.classList.add('hidden');
   if (hls) { hls.destroy(); hls = null; }
+  // ensure previous src is cleared to avoid mixed media states
+  try { video.pause(); } catch(e){}
+  video.removeAttribute('src');
+  video.load();
   if (Hls.isSupported()) {
     hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+    hls.on(Hls.Events.ERROR, (e, data) => {
+      console.error('HLS error', e, data);
+      if (data && data.fatal) {
+        overlay.classList.remove('hidden');
+        const msg = data.type ? `${data.type}` : 'Stream error';
+        const details = data.details ? `: ${data.details}` : '';
+        overlay.querySelector('.overlay-text').textContent = `⚠ ${msg}${details}`;
+      }
+    });
     hls.loadSource(ch.url);
     hls.attachMedia(video);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
-    hls.on(Hls.Events.ERROR, (e, data) => { if (data.fatal) { overlay.classList.remove('hidden'); overlay.querySelector('.overlay-text').textContent = '⚠ Stream unavailable'; } });
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(err => { console.warn('play() rejected', err); }));
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
     video.src = ch.url;
     video.play().catch(()=>{});
